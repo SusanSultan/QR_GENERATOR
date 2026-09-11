@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Vault — files to scannable links</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0F1115;
+    --panel:#171A21;
+    --panel-2:#1D212A;
+    --border:#282D38;
+    --text:#E7E9EE;
+    --muted:#8B93A5;
+    --accent:#4FD1C5;
+    --accent-dim:#2E5F5A;
+    --warn:#E2A33C;
+    --danger:#E2694F;
+    --radius:10px;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.5;
+    min-height:100vh;
+  }
+  a{color:var(--accent);}
+
+  header{
+    padding:28px 24px 20px;
+    border-bottom:1px solid var(--border);
+    max-width:1200px;
+    margin:0 auto;
+  }
+  header h1{
+    font-size:22px;
+    font-weight:650;
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size:14px;
+    max-width:640px;
+  }
+
+  .layout{
+    max-width:1200px;
+    margin:0 auto;
+    padding:24px;
+    display:grid;
+    grid-template-columns:320px 1fr;
+    gap:22px;
+    align-items:start;
+  }
+  @media (max-width:860px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px;
+  }
+  .panel + .panel{margin-top:18px;}
+
+  .step{
+    display:flex;
+    gap:10px;
+    align-items:baseline;
+    margin-bottom:14px;
+  }
+  .step-num{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--accent);
+    border:1px solid var(--accent-dim);
+    border-radius:5px;
+    padding:1px 6px;
+    flex:none;
+  }
+  .step h2{
+    font-size:15px;
+    font-weight:600;
+    margin:0;
+  }
+
+  label{
+    display:block;
+    font-size:12.5px;
+    color:var(--muted);
+    margin:12px 0 5px;
+  }
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=password]{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:7px;
+    padding:9px 10px;
+    font-size:13.5px;
+    font-family:var(--mono);
+  }
+  input[type=text]:focus, input[type=password]:focus{
+    outline:2px solid var(--accent);
+    outline-offset:-1px;
+    border-color:var(--accent);
+  }
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:8px;
+    line-height:1.5;
+  }
+  .hint a{color:var(--accent);}
+
+  button{
+    font-family:var(--sans);
+    font-size:13.5px;
+    font-weight:600;
+    border-radius:7px;
+    border:1px solid transparent;
+    padding:9px 14px;
+    cursor:pointer;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#0B1210;
+  }
+  .btn-primary:hover{filter:brightness(1.06);}
+  .btn-primary:disabled{background:#33443F; color:#6E7A76; cursor:not-allowed;}
+  .btn-ghost{
+    background:transparent;
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  .btn-ghost:hover{border-color:var(--accent);}
+  .btn-danger{
+    background:transparent;
+    color:var(--danger);
+    border:1px solid #4A2E28;
+    font-weight:500;
+  }
+  .btn-danger:hover{border-color:var(--danger);}
+
+  .status{
+    margin-top:12px;
+    font-size:12.5px;
+    font-family:var(--mono);
+    padding:8px 10px;
+    border-radius:7px;
+    display:none;
+  }
+  .status.show{display:block;}
+  .status.ok{background:#132420; color:var(--accent); border:1px solid var(--accent-dim);}
+  .status.err{background:#271815; color:var(--danger); border:1px solid #4A2E28;}
+  .status.busy{background:var(--panel-2); color:var(--muted); border:1px solid var(--border);}
+
+  .dropzone{
+    border:1.5px dashed var(--border);
+    border-radius:var(--radius);
+    padding:36px 20px;
+    text-align:center;
+    color:var(--muted);
+    font-size:13.5px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{
+    border-color:var(--accent);
+    background:#132420;
+    color:var(--text);
+  }
+  .dropzone strong{color:var(--text); font-weight:600;}
+  #fileInput{display:none;}
+
+  .queue{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
+  .queue-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:9px 10px;
+  }
+  .queue-item .fname{
+    flex:1;
+    font-size:13px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .queue-item input[type=text]{
+    flex:1;
+    padding:6px 8px;
+    font-size:12.5px;
+  }
+  .queue-item .fsize{
+    color:var(--muted);
+    font-size:11.5px;
+    font-family:var(--mono);
+    flex:none;
+  }
+
+  .grid-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .grid-head h2{font-size:16px; margin:0;}
+  .grid-actions{display:flex; gap:8px;}
+
+  .empty{
+    color:var(--muted);
+    font-size:13.5px;
+    padding:40px 10px;
+    text-align:center;
+    border:1px dashed var(--border);
+    border-radius:var(--radius);
+  }
+
+  .cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));
+    gap:14px;
+  }
+  .card{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .card .qr-box{
+    background:#fff;
+    border-radius:7px;
+    padding:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .card .qr-box img{display:block; width:100%; height:auto;}
+  .card .name{
+    font-size:14px;
+    font-weight:600;
+    background:transparent;
+    border:none;
+    color:var(--text);
+    padding:2px 0;
+    width:100%;
+  }
+  .card .name:focus{outline:none; border-bottom:1px solid var(--accent);}
+  .card .link{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    word-break:break-all;
+  }
+  .card .meta{
+    font-size:11px;
+    color:var(--muted);
+    font-family:var(--mono);
+  }
+  .card .card-actions{
+    display:flex;
+    gap:6px;
+    margin-top:2px;
+  }
+  .card .card-actions button{
+    flex:1;
+    padding:7px 8px;
+    font-size:12px;
+  }
+
+  footer{
+    max-width:1200px;
+    margin:0 auto;
+    padding:10px 24px 40px;
+    color:var(--muted);
+    font-size:12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>QR Vault</h1>
+  <p>Upload files into your own GitHub repo and get a named, scannable QR code for each one. Nothing is sent anywhere except to your repo — the whole thing runs in this page.</p>
+</header>
+
+<div class="layout">
+
+  <div>
+    <div class="panel">
+      <div class="step">
+        <span class="step-num">1</span>
+        <h2>Connect your repo</h2>
+      </div>
+
+      <label for="ghOwner">GitHub username</label>
+      <input type="text" id="ghOwner" placeholder="e.g. lili-dev">
+
+      <label for="ghRepo">Repository name</label>
+      <input type="text" id="ghRepo" placeholder="e.g. qr-vault-files">
+
+      <div class="row2">
+        <div>
+          <label for="ghBranch">Branch</label>
+          <input type="text" id="ghBranch" placeholder="main" value="main">
+        </div>
+        <div>
+          <label for="ghFolder">Folder</label>
+          <input type="text" id="ghFolder" placeholder="files" value="files">
+        </div>
+      </div>
+
+      <label for="ghToken">Personal access token</label>
+      <input type="password" id="ghToken" placeholder="ghp_...">
+
+      <div class="hint">
+        Needs a fine-grained token with <strong>Contents: read/write</strong> on this one repo — not a broad token. Create one at
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a>.
+        The token is only kept in this browser's local storage, never uploaded anywhere.
+      </div>
+
+      <div id="connStatus" class="status"></div>
+    </div>
+
+    <div class="panel">
+      <div class="step">
+        <span class="step-num">i</span>
+        <h2>How it works</h2>
+      </div>
+      <div class="hint" style="margin-top:0;">
+        Each file you add is committed straight to your repo via the GitHub API. Its QR code points to the file's raw GitHub URL, so scanning it opens the file directly. Rename and manage every QR code below — the list is saved in this browser, and you can export it as a backup file any time.
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="step">
+        <span class="step-num">2</span>
+        <h2>Add files</h2>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        <div><strong>Drop files here</strong> or click to choose</div>
+        <div style="margin-top:4px;">You can add several at once — each gets its own QR code.</div>
+      </div>
+      <input type="file" id="fileInput" multiple>
+
+      <div class="queue" id="queue"></div>
+
+      <div style="margin-top:14px; display:flex; gap:10px;">
+        <button class="btn-primary" id="uploadBtn" disabled>Upload &amp; generate QR codes</button>
+        <button class="btn-ghost" id="clearQueueBtn" style="display:none;">Clear</button>
+      </div>
+
+      <div id="uploadStatus" class="status"></div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="grid-head">
+        <h2>Your QR codes</h2>
+        <div class="grid-actions">
+          <button class="btn-ghost" id="exportBtn">Export list</button>
+          <button class="btn-ghost" id="importBtn">Import list</button>
+          <input type="file" id="importInput" accept="application/json" style="display:none;">
+        </div>
+      </div>
+      <div id="cardsWrap"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Runs entirely client-side. Host this file on GitHub Pages to use it from anywhere.
+</footer>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  const ownerEl = $('ghOwner'), repoEl = $('ghRepo'), branchEl = $('ghBranch'),
+        folderEl = $('ghFolder'), tokenEl = $('ghToken'), connStatus = $('connStatus');
+
+  const CONFIG_KEY = 'qrvault_config';
+  const LIST_KEY = 'qrvault_items';
+
+  function loadConfig(){
+    try{
+      const raw = localStorage.getItem(CONFIG_KEY);
+      if(!raw) return;
+      const c = JSON.parse(raw);
+      ownerEl.value = c.owner || '';
+      repoEl.value = c.repo || '';
+      branchEl.value = c.branch || 'main';
+      folderEl.value = c.folder || 'files';
+      tokenEl.value = c.token || '';
+    }catch(e){}
+  }
+  function saveConfig(){
+    const c = {
+      owner: ownerEl.value.trim(),
+      repo: repoEl.value.trim(),
+      branch: (branchEl.value.trim() || 'main'),
+      folder: folderEl.value.trim().replace(/^\/+|\/+$/g,'') || 'files',
+      token: tokenEl.value.trim()
+    };
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(c));
+    return c;
+  }
+  [ownerEl, repoEl, branchEl, folderEl, tokenEl].forEach(el=>{
+    el.addEventListener('change', saveConfig);
+    el.addEventListener('blur', saveConfig);
+  });
+  loadConfig();
+
+  function setStatus(el, kind, msg){
+    el.className = 'status show ' + kind;
+    el.textContent = msg;
+  }
+  function clearStatus(el){
+    el.className = 'status';
+    el.textContent = '';
+  }
+
+  // ---------- file queue ----------
+  let queue = []; // {file, name}
+  const dropzone = $('dropzone'), fileInput = $('fileInput'), queueEl = $('queue'),
+        uploadBtn = $('uploadBtn'), clearQueueBtn = $('clearQueueBtn'), uploadStatus = $('uploadStatus');
+
+  dropzone.addEventListener('click', ()=> fileInput.click());
+  dropzone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    addFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', ()=> addFiles(fileInput.files));
+
+  function addFiles(fileList){
+    Array.from(fileList).forEach(f=>{
+      queue.push({file: f, name: f.name.replace(/\.[^/.]+$/, '')});
+    });
+    fileInput.value = '';
+    renderQueue();
+  }
+
+  function humanSize(bytes){
+    if(bytes < 1024) return bytes + ' B';
+    if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/(1024*1024)).toFixed(1) + ' MB';
+  }
+
+  function renderQueue(){
+    queueEl.innerHTML = '';
+    queue.forEach((item, i)=>{
+      const row = document.createElement('div');
+      row.className = 'queue-item';
+      row.innerHTML = `
+        <span class="fname" title="${item.file.name}">${item.file.name}</span>
+        <input type="text" data-i="${i}" value="${item.name}" placeholder="Name for this QR code">
+        <span class="fsize">${humanSize(item.file.size)}</span>
+        <button class="btn-danger" data-remove="${i}" style="padding:5px 8px;">✕</button>
+      `;
+      queueEl.appendChild(row);
+    });
+    queueEl.querySelectorAll('input[type=text]').forEach(inp=>{
+      inp.addEventListener('input', (e)=>{
+        queue[+e.target.dataset.i].name = e.target.value;
+      });
+    });
+    queueEl.querySelectorAll('[data-remove]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        queue.splice(+e.target.dataset.remove, 1);
+        renderQueue();
+      });
+    });
+    uploadBtn.disabled = queue.length === 0;
+    clearQueueBtn.style.display = queue.length ? 'inline-block' : 'none';
+  }
+  clearQueueBtn.addEventListener('click', ()=>{ queue = []; renderQueue(); clearStatus(uploadStatus); });
+
+  // ---------- github upload ----------
+  function fileToBase64(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> resolve(r.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  function sanitizeFilename(name){
+    return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  }
+
+  async function uploadOne(cfg, file){
+    const ts = Date.now();
+    const path = `${cfg.folder}/${ts}_${sanitizeFilename(file.name)}`;
+    const content = await fileToBase64(file);
+    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${cfg.token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: `Add ${file.name} via QR Vault`,
+        content: content,
+        branch: cfg.branch
+      })
+    });
+    if(!res.ok){
+      const errBody = await res.json().catch(()=>({}));
+      throw new Error(errBody.message || `Upload failed (${res.status})`);
+    }
+    const data = await res.json();
+    const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${path}`;
+    return { rawUrl, path, sha: data.content && data.content.sha };
+  }
+
+  uploadBtn.addEventListener('click', async ()=>{
+    const cfg = saveConfig();
+    if(!cfg.owner || !cfg.repo || !cfg.token){
+      setStatus(connStatus, 'err', 'Fill in username, repo and token first.');
+      return;
+    }
+    clearStatus(connStatus);
+    uploadBtn.disabled = true;
+    let done = 0;
+    for(const item of queue){
+      setStatus(uploadStatus, 'busy', `Uploading ${item.file.name} (${done+1}/${queue.length})…`);
+      try{
+        const result = await uploadOne(cfg, item.file);
+        addItem({
+          id: 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+          name: item.name || item.file.name,
+          url: result.rawUrl,
+          path: result.path,
+          sha: result.sha,
+          size: item.file.size,
+          date: new Date().toISOString()
+        });
+        done++;
+      }catch(err){
+        setStatus(uploadStatus, 'err', `Failed on ${item.file.name}: ${err.message}`);
+        uploadBtn.disabled = false;
+        return;
+      }
+    }
+    setStatus(uploadStatus, 'ok', `Done — ${done} file(s) uploaded and QR codes generated.`);
+    queue = [];
+    renderQueue();
+    uploadBtn.disabled = false;
+  });
+
+  // ---------- saved items / cards ----------
+  let items = [];
+  function loadItems(){
+    try{
+      items = JSON.parse(localStorage.getItem(LIST_KEY) || '[]');
+    }catch(e){ items = []; }
+  }
+  function persistItems(){
+    localStorage.setItem(LIST_KEY, JSON.stringify(items));
+  }
+  function addItem(item){
+    items.unshift(item);
+    persistItems();
+    renderCards();
+  }
+
+  const cardsWrap = $('cardsWrap');
+
+  function renderCards(){
+    if(items.length === 0){
+      cardsWrap.innerHTML = '<div class="empty">No QR codes yet — upload a file above to create your first one.</div>';
+      return;
+    }
+    cardsWrap.innerHTML = '<div class="cards" id="cardsGrid"></div>';
+    const grid = $('cardsGrid');
+    items.forEach(item=>{
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="qr-box" id="qr_${item.id}"></div>
+        <input type="text" class="name" value="${item.name.replace(/"/g,'&quot;')}" data-id="${item.id}">
+        <div class="link">${item.url}</div>
+        <div class="meta">${humanSize(item.size||0)} · ${new Date(item.date).toLocaleDateString()}</div>
+        <div class="card-actions">
+          <button class="btn-ghost" data-copy="${item.id}">Copy link</button>
+          <button class="btn-ghost" data-download="${item.id}">Save PNG</button>
+          <button class="btn-danger" data-delete="${item.id}">Delete</button>
+        </div>
+      `;
+      grid.appendChild(card);
+
+      new QRCode(document.getElementById(`qr_${item.id}`), {
+        text: item.url,
+        width: 180,
+        height: 180,
+        colorDark: '#0F1115',
+        colorLight: '#ffffff'
+      });
+    });
+
+    grid.querySelectorAll('.name').forEach(inp=>{
+      inp.addEventListener('change', (e)=>{
+        const it = items.find(x=>x.id === e.target.dataset.id);
+        if(it){ it.name = e.target.value; persistItems(); }
+      });
+    });
+    grid.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        const it = items.find(x=>x.id === e.target.dataset.copy);
+        navigator.clipboard.writeText(it.url);
+        e.target.textContent = 'Copied';
+        setTimeout(()=> e.target.textContent = 'Copy link', 1200);
+      });
+    });
+    grid.querySelectorAll('[data-download]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        const id = e.target.dataset.download;
+        const box = document.getElementById(`qr_${id}`);
+        const img = box.querySelector('img') || box.querySelector('canvas');
+        const it = items.find(x=>x.id === id);
+        const link = document.createElement('a');
+        link.download = (it.name || 'qrcode').replace(/[^a-zA-Z0-9._-]/g,'_') + '.png';
+        link.href = img.tagName === 'CANVAS' ? img.toDataURL('image/png') : img.src;
+        link.click();
+      });
+    });
+    grid.querySelectorAll('[data-delete]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        const id = e.target.dataset.delete;
+        if(!confirm('Remove this QR code from your list? (The file stays in your GitHub repo.)')) return;
+        items = items.filter(x=>x.id !== id);
+        persistItems();
+        renderCards();
+      });
+    });
+  }
+
+  // ---------- export / import ----------
+  $('exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(items, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'qr-vault-list.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  $('importBtn').addEventListener('click', ()=> $('importInput').click());
+  $('importInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const imported = JSON.parse(reader.result);
+        if(Array.isArray(imported)){
+          const existingIds = new Set(items.map(x=>x.id));
+          imported.forEach(it=>{ if(!existingIds.has(it.id)) items.push(it); });
+          persistItems();
+          renderCards();
+        }
+      }catch(err){
+        alert('Could not read that file as a QR Vault list.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  loadItems();
+  renderCards();
+})();
+</script>
+
+</body>
+</html>
